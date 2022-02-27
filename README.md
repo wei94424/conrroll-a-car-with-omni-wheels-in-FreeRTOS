@@ -95,7 +95,7 @@ In forward and backward case, 4 wheels will go on same direction and same speed 
   * turning forward -> speed(80) - RESET(0) = 80 (positive value equal to turning forward)
   * stop -> 0 - RESET(0) = 0 = 100 - SET(100)
  our car are runing in discrete motion, rather than continuous motion, so we put stop function after every motion.    
-  ```
+ ```
  void Stop(void){
 	LL_TIM_OC_SetCompareCH1(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*0 / 100));//PD12
 	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0);//3
@@ -105,7 +105,8 @@ In forward and backward case, 4 wheels will go on same direction and same speed 
 	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_9);
 	LL_TIM_OC_SetCompareCH4(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*0 / 100));//PD15
 	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_3);//4
-}```
+}
+```
 
     | cmd | action     | CCR1-GPIO | CCR2-GPIO | CCR3-GPIO | CCR4-GPIO |
     |-----|------------|-----------|-----------|-----------|-----------|
