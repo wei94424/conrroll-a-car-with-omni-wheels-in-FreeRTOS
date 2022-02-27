@@ -3,6 +3,7 @@ Running FreeRTOS in STM32CubeIDE, different tasks let the car can be control the
 
 # I/O Interface
 ![I/O](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/io.jpg)
+![IOpin](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/io%20pin.png)
 ## LCD
 ## 3-Axis IMU
 ## USART
@@ -13,6 +14,8 @@ Running FreeRTOS in STM32CubeIDE, different tasks let the car can be control the
   The module can drive DC motors that have voltages between 5 and 35V, with a peak current up to 2A.  
   L9110 dual-motor driver module is the single four-line two-phase stepper motor
   ### Perameter Settings
+  in STM32CubeMX we use clock configuration to set SYSCLK = 20MHz, and use TIM4 parameter setting to set ARR = 100-1 and prescaler = 20000, then we have
+  * PWM Frequency = 20MHz / (100 * 20000) = 10Hz
   ``` 
   LL_TIM_SetCounterMode(TIM4, LL_TIM_COUNTERMODE_UP);
   LL_TIM_SetAutoReload(TIM4, __LL_TIM_CALC_ARR(TimOutClock, LL_TIM_GetPrescaler(TIM4), 100)); 
@@ -75,7 +78,7 @@ In forward and backward case, 4 wheels will go on same direction and same speed 
 
 
 # Low Layer Library
-
+![LL](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/ll.png)
 # FreeRTOS
 ## Task1 - Roll_Task
 ## Task2 - Uart_Rx_Task
