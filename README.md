@@ -1,19 +1,53 @@
 # conrroll-a-car-with-omni-wheels-in-FreeRTOS
 Running FreeRTOS in STM32CubeIDE, different tasks let the car can be control the direction, and read the sensor data concurrently.   
+# Low Layer Library
+![LL](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/ll.png)
+we can monitor the registers by listening the flag condition
+表格列出所有有用flag
+* for I2C reading the location where deposit some useful data
+```
+uint8_t readReg(uint8_t addr)
+{
+	LL_I2C_HandleTransfer(I2C1, SLAVE_ADDRESS_ADXL, LL_I2C_ADDRSLAVE_7BIT, sizeof(addr), LL_I2C_MODE_AUTOEND, LL_I2C_GENERATE_START_WRITE);
+	while(!LL_I2C_IsActiveFlag_TXE(I2C1));
+	LL_I2C_TransmitData8(I2C1, addr);
+	LL_mDelay(50);
+	LL_I2C_HandleTransfer(I2C1, 0xA6, LL_I2C_ADDRSLAVE_7BIT, sizeof(addr), LL_I2C_MODE_AUTOEND, LL_I2C_GENERATE_START_READ);
+	while(!LL_I2C_IsActiveFlag_RXNE(I2C1));
+	return LL_I2C_ReceiveData8(I2C1);
+}
+```
+* for I2C writing in objective register, use to initialize IMU
+```
+void writeReg(uint8_t addr, uint8_t val)
+{
+	LL_I2C_HandleTransfer(I2C1, SLAVE_ADDRESS_ADXL, LL_I2C_ADDRSLAVE_7BIT, sizeof(addr)*2, LL_I2C_MODE_AUTOEND, LL_I2C_GENERATE_START_WRITE);
+	LL_mDelay(50);
+	while(!LL_I2C_IsActiveFlag_TXIS(I2C1));
+	LL_I2C_TransmitData8(I2C1, addr);
+	LL_mDelay(50);
+	while(!LL_I2C_IsActiveFlag_TXIS(I2C1));
+	LL_I2C_TransmitData8(I2C1, val);
 
+}
+ ```
+* for UART transmitting, 
+```
+void Usartx_Send(char *string){
+    while(*string){
+    	while(!LL_USART_IsActiveFlag_TXE(USARTx));
+        LL_USART_TransmitData8(USARTx, (uint8_t) *string++);//Write in Transmitter Data Register (Transmit Data value, 8 bits)
+    }
+} 
+```
 # I/O Interface
 ![I/O](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/io.jpg)
 ![IOpin](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/io%20pin.png)
-## LCD
-## 3-Axis IMU
-## USART
-  * Bluetooth
-  * PC
-## Motor
-  The L298N is a dual H-Bridge motor driver which allows speed and direction control of two DC motors at the same time.  
-  The module can drive DC motors that have voltages between 5 and 35V, with a peak current up to 2A.  
-  L9110 dual-motor driver module is the single four-line two-phase stepper motor
-  ### Perameter Settings
+
+# using PWM control the motors
+   2 L9110 dual-motor driver module is the single four-line two-phase stepper motor, using to control 4 wheels direction and speed.
+  ![motor](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/L9110.png)
+  ## TIM4 Perameter Settings
   in STM32CubeMX we use clock configuration to set SYSCLK = 20MHz, and use TIM4 parameter setting to set ARR = 100-1 and prescaler = 20000, then we have
   * PWM Frequency = 20MHz / (100 * 20000) = 10Hz
   ``` 
@@ -21,7 +55,9 @@ Running FreeRTOS in STM32CubeIDE, different tasks let the car can be control the
   LL_TIM_SetAutoReload(TIM4, __LL_TIM_CALC_ARR(TimOutClock, LL_TIM_GetPrescaler(TIM4), 100)); 
   LL_TIM_SetPrescaler(TIM4, __LL_TIM_CALC_PSC(SystemCoreClock, 20000));
   ```
-  ### Omni Motor Action   
+  and then we open Channel1~4 as PWM Generation CH1~4, all in PWM mode 1,  
+  thus channel1~4 have the corresponding CCR1~4 which will controling the motor speed, due to duty cycle.
+  ## Omni Motor Action   
 * overall 
 
   | GPIO | PWM_slowest | PWM_fastest |
@@ -57,7 +93,19 @@ In forward and backward case, 4 wheels will go on same direction and same speed 
   ![moving derection](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/compass%20rose.png)  
   * turning backward -> 100-speed(20) - SET(100) = -80 (negative value equal to turning backward)
   * turning forward -> speed(80) - RESET(0) = 80 (positive value equal to turning forward)
-  
+  * stop -> 0 - RESET(0) = 0 = 100 - SET(100)
+ our car are runing in discrete motion, rather than continuous motion, so we put stop function after every motion.    
+  ```
+ void Stop(void){
+	LL_TIM_OC_SetCompareCH1(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*0 / 100));//PD12
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_0);//3
+	LL_TIM_OC_SetCompareCH2(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*0 / 100));//PD13
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_8);
+	LL_TIM_OC_SetCompareCH3(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*0 / 100));//PD14
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_9);
+	LL_TIM_OC_SetCompareCH4(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*0 / 100));//PD15
+	LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_3);//4
+}```
 
     | cmd | action     | CCR1-GPIO | CCR2-GPIO | CCR3-GPIO | CCR4-GPIO |
     |-----|------------|-----------|-----------|-----------|-----------|
@@ -75,11 +123,46 @@ In forward and backward case, 4 wheels will go on same direction and same speed 
     * ```PWM Duty cycle = CCR / ( ARR + 1 ) = CCR / 100```  
     * initial CCR ```#define SPEED_INIT 80```    
     * value print on LCD = CCR - 50  
+# Task1 - Roll_Task (Motor)
+ using the command receiving by Uart_Rx_Task, we want to contol the Omni-wheel car in 10 action (include stop)
+ * set initial speed, and rising interval, and threshold
+ * print speed and control command on LCD
+ * Queue
+ * due to command, motor turn in corresponding way, like turn around
+ ```
+   else if(nextCmd=='t')
+			{
+			LL_TIM_OC_SetCompareCH2(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*70 / 100));//PD13
+			LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_8);//2
+			LL_TIM_OC_SetCompareCH3(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*70 / 100));//PD14
+			LL_GPIO_ResetOutputPin(GPIOC,LL_GPIO_PIN_9);//1
+			LL_TIM_OC_SetCompareCH1(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*30 / 100));//PD12
+			LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_0);//3
+			LL_TIM_OC_SetCompareCH4(TIM4, ( (LL_TIM_GetAutoReload(TIM4) + 1 )*30 / 100));//PD15
+			LL_GPIO_SetOutputPin(GPIOC,LL_GPIO_PIN_3);//4
+			vTaskDelay(1650/portTICK_PERIOD_MS);
+			Stop();
+			}
+   ```
+ *we can also check the CCR1~4 in the SFR, it should be the vlaue as we set CCR1 = CCR4 = 0x1e=30 , CCR2 = CCR3 =0x46=70
+ ![sfr](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/sfr.png)
+ * clear LCD
 
-
-# Low Layer Library
-![LL](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/ll.png)
-# FreeRTOS
-## Task1 - Roll_Task
-## Task2 - Uart_Rx_Task
-## Task3 - ADXL_Task
+# Task2 - Uart_Rx_Task
+receiving the command from user phone constantly, which use to control the motor action 
+  * Bluetooth (USART6)
+    * HC-06 
+    * Asynchronous mode
+    * in Baud Rate 9600, to connect the Bluetooth of user phone
+    ```while(!LL_USART_IsActiveFlag_RXNE(USART6));
+		     rec =LL_USART_ReceiveData8(USART6);```
+# Task3 - ADXL_Task
+  * ADXL345 
+    * initialize
+    * read 3-aixs 16-bits accelemetor data from 6 corresponding 8-bits registers
+    * using USART3 to check the 3-axis value on PC
+    * print the IMU data on the LCD screen  
+  * LCD
+  * PC (USART3)
+    * Asynchronous mode
+    * in Baud Rate 115200, to connect PC for debug about the correction of the IMU data and abilitiy of UART port.
