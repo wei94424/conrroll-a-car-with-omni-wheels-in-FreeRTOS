@@ -1,5 +1,6 @@
 # conrroll-a-car-with-omni-wheels-in-FreeRTOS
 Running FreeRTOS in STM32CubeIDE, different tasks let the car can be control the direction, and read the sensor data concurrently.   
+demo vedio : https://youtu.be/CKv5adVyKoY
 # Low Layer Library
 ![LL](https://github.com/wei94424/conrroll-a-car-with-omni-wheels-in-FreeRTOS/blob/master/img/ll.png)
 we can monitor the registers by listening the flag condition
